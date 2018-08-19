@@ -221,10 +221,15 @@ fi
 info "Checking filesystem"
 if ! e2fsck -pf "$loopback"; then
 	rc=$?
-	info "e2fsck failed with rc $rc. Filesystem is corrupt. Trying to fix filesystem"
-	if ! e2fsck -yv "$loopback"; then
-		rc=$?
-		error $LINENO "e2fsck -y failed with rc $rc. Giving up to fix corrupted filesystem."
+	if [[ $repair == true ]]; then
+		info "e2fsck failed with rc $rc. Filesystem is corrupt. Trying to fix filesystem"
+		if ! e2fsck -yv "$loopback"; then
+			rc=$?
+			error $LINENO "e2fsck -y failed with rc $rc. Giving up to fix corrupted filesystem."
+			exit -9
+		fi
+	else
+		error $LINENO "e2fsck failed with rc $rc. Filesystem is corrupt"
 		exit -9
 	fi
 fi

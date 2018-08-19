@@ -38,9 +38,23 @@ function logVariables() {
 function checkFilesystem() {
 
 	local rc=0
-	local tries=0
 
-	while (( tries < 3 )); do
+	info "Checking filesystem"
+	e2fsck -pfttv "$loopback"
+	rc=$?
+	if (( rc < 4 )); then
+		info "Filesystem checked and OK"
+		return
+	fi
+
+	if [[ $repair != true ]]; then
+		error $LINENO "e2fsck failed with rc $rc. Filesystem corrupted. Try option -r."
+		exit -9
+	fi
+
+	info "Filesystem error detected"
+	local tries=1
+	while (( tries <= 3 )); do
 		info "Trying to recover corrupted filesystem. Trial $tries"
 		e2fsck -pfttv "$loopback"
 		rc=$?
@@ -51,13 +65,8 @@ function checkFilesystem() {
 		(( tries++ ))
 	done
 
-	if [[ $repair != true ]]; then
-		error $LINENO "e2fsck failed with rc $rc. Giving up to fix corrupted filesystem."
-		exit -9
-	fi
-
-	tries=0
-	while (( tries < 3 )); do
+	tries=1
+	while (( tries <= 3 )); do
 		info "Trying to recover corrupted filesystem with alternate superblock. Trial $tries"
 		e2fsck -b 32768 -pfttv "$loopback"
 		rc=$?
@@ -159,25 +168,10 @@ trap cleanup ERR EXIT
 #Gather info
 info "Gatherin data"
 beforesize=$(ls -lh "$img" | cut -d ' ' -f 5)
-logVariables $LINENO beforesize
-if ! parted_output=$(parted -ms "$img" unit B print); then
-	rc=$?
-	error $LINENO "parted failed with rc $rc"
-	exit -6
-fi
-parted_output=$(tail -n 1 <<< $parted_output)
-logVariables $LINENO parted_output
-
+parted_output=$(parted -ms "$img" unit B print | tail -n 1)
 partnum=$(echo "$parted_output" | cut -d ':' -f 1)
 partstart=$(echo "$parted_output" | cut -d ':' -f 2 | tr -d 'B')
-logVariables $LINENO partnum partstart
-
-info "Mounting image"
-if ! loopback=$(losetup -f --show -o $partstart "$img"); then
-	rc=$?
-	error $LINENO "losetup failed with rc $rc"
-	exit -7
-fi
+loopback=$(losetup -f --show -o $partstart "$img")
 tune2fs_output=$(tune2fs -l "$loopback")
 currentsize=$(echo "$tune2fs_output" | grep '^Block count:' | tr -d ' ' | cut -d ':' -f 2)
 blocksize=$(echo "$tune2fs_output" | grep '^Block size:' | tr -d ' ' | cut -d ':' -f 2)
@@ -330,6 +324,7 @@ if ! truncate -s $endresult "$img"; then
 	rc=$?
 	error $LINENO "trunate failed with rc $rc"
 	exit -16
+fi
 
 aftersize=$(ls -lh "$img" | cut -d ' ' -f 5)
 logVariables $LINENO aftersize

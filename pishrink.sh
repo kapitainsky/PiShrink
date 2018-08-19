@@ -48,7 +48,7 @@ function checkFilesystem() {
 			info "Recovered filesystem error"
 			return
 		fi
-		(( tries-- ))
+		(( tries++ ))
 	done
 
 	if [[ $repair != true ]]; then
@@ -65,7 +65,7 @@ function checkFilesystem() {
 			info "Recovered filesystem error with alternate superblock"
 			return
 		fi
-		(( tries-- ))
+		(( tries++ ))
 	done
 
 	info "Trying to recover corrupted filesystem (Final try)"
@@ -178,10 +178,7 @@ if ! loopback=$(losetup -f --show -o $partstart "$img"); then
 	error $LINENO "losetup failed with rc $rc"
 	exit -7
 fi
-if ! tune2fs_output=$(tune2fs -l "$loopback"); then
-	error $LINENO "tunefs failed"
-	exit -8
-fi
+tune2fs_output=$(tune2fs -l "$loopback")
 currentsize=$(echo "$tune2fs_output" | grep '^Block count:' | tr -d ' ' | cut -d ':' -f 2)
 blocksize=$(echo "$tune2fs_output" | grep '^Block size:' | tr -d ' ' | cut -d ':' -f 2)
 

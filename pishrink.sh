@@ -35,6 +35,52 @@ function logVariables() {
 	fi
 }
 
+function checkFilesystem() {
+
+	local rc=0
+	local tries=0
+
+	while (( tries < 3 )); do
+		info "Trying to recover corrupted filesystem. Trial $tries"
+		e2fsck -pfttv "$loopback"
+		rc=$?
+		if (( rc < 4 )); then
+			info "Recovered filesystem error"
+			return
+		fi
+		(( tries-- ))
+	done
+
+	if [[ $repair != true ]]; then
+		error $LINENO "e2fsck failed with rc $rc. Giving up to fix corrupted filesystem."
+		exit -9
+	fi
+
+	tries=0
+	while (( tries < 3 )); do
+		info "Trying to recover corrupted filesystem with alternate superblock. Trial $tries"
+		e2fsck -b 32768 -pfttv "$loopback"
+		rc=$?
+		if (( rc < 4 )); then
+			info "Recovered filesystem error with alternate superblock"
+			return
+		fi
+		(( tries-- ))
+	done
+
+	info "Trying to recover corrupted filesystem (Final try)"
+	e2fsck -yv "$loopback"
+	rc=$?
+	if (( $rc < 4 )); then
+		info "Recovered failesystem error (Final try)"
+		return
+	fi
+
+	error $LINENO "e2fsck failed with rc $rc. Giving up to fix corrupted filesystem."
+	exit -9
+
+}
+
 usage() { echo "Usage: $0 [-sdr] imagefile.img [newimagefile.img]"; exit -1; }
 
 should_skip_autoexpand=false
@@ -219,20 +265,7 @@ fi
 
 #Make sure filesystem is ok
 info "Checking filesystem"
-if ! e2fsck -pf "$loopback"; then
-	rc=$?
-	if [[ $repair == true ]]; then
-		info "e2fsck failed with rc $rc. Filesystem is corrupt. Trying to fix filesystem"
-		if ! e2fsck -yv "$loopback"; then
-			rc=$?
-			error $LINENO "e2fsck -y failed with rc $rc. Giving up to fix corrupted filesystem."
-			exit -9
-		fi
-	else
-		error $LINENO "e2fsck failed with rc $rc. Filesystem is corrupt"
-		exit -9
-	fi
-fi
+checkFilesystem
 
 if ! minsize=$(resize2fs -P "$loopback"); then
 	rc=$?

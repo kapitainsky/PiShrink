@@ -108,7 +108,7 @@ EOM
 }
 
 usage() {
-	echo "Usage: $0 [-sdrp] imagefile.img [newimagefile.img]"
+	echo "Usage: $0 [-sdrph] imagefile.img [newimagefile.img]"
 	echo "-s: skip autoexpand"
 	echo "-d: debug mode on"
 	echo "-r: try to repair filesystem errors"

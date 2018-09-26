@@ -75,7 +75,7 @@ function checkFilesystem() {
 
 	info "Filesystem error detected"
 
-	if [[ $repair != true || $paranoia != true ]]; then
+	if [[ $paranoia != true ]]; then
 		error $LINENO "e2fsck failed. Filesystem corrupted. Try option -r or option -p."
 		exit -9
 	fi
@@ -102,8 +102,8 @@ help() {
 	read -r -d '' help << EOM
 -s: Don't expand filesystem when image is booted the first time
 -d: Write debug messages in a debug log file
--r: Try to repair a corrupted filesystem with e2fsk
--p: Try to repair a corrupted filesystem with paranoia
+-r: Try to repair corrupted filesystem
+-p: Try to repair corrupted filesystem in paranoia mode
 EOM
 	echo $help
 	exit -1
@@ -281,7 +281,9 @@ else
 fi
 
 #Make sure filesystem is ok
-checkFilesystem
+if [[ repair == true ]]; then
+	checkFilesystem
+fi
 
 if ! minsize=$(resize2fs -P "$loopback"); then
 	rc=$?

@@ -71,12 +71,14 @@ function checkFilesystem() {
 	retry "e2fsck -pfttv \"$loopback\"" 3 "$stdTest"
 	rc=$?
 
-	if [[ $repair != true || $paranoia != true ]] && (( rc )); then
+	(( ! rc )) && return
+
+	info "Filesystem error detected"
+
+	if [[ $repair != true || $paranoia != true ]]; then
 		error $LINENO "e2fsck failed. Filesystem corrupted. Try option -r or option -p."
 		exit -9
 	fi
-
-	info "Filesystem error detected"
 
 	info "Trying to recover corrupted filesystem (Phase1)"
 	retry "e2fsck -pftt \"$loopback\"" 3 "stdTest"
@@ -142,8 +144,6 @@ if [ "$debug" = true ]; then
 fi
 
 echo "${0##*/} $version"
-
-echo "*** Untested version ***"
 
 #Args
 src="$1"
